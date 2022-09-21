@@ -1,0 +1,1 @@
+checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: '47924703-10e2-466d-96b2-15fa37b1bb72', url: 'https://github.com/kiranraj4me/react_app']]])
