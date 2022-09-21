@@ -1,45 +1,50 @@
-node {
-stage('Checkout from Github') {
-    checkout scm
-}
-try{
+pipeline {
+    agent any
+    environment{  
+      scmUrl = "git@github.com:kiranraj4me/AWS_S3_INFRA.git"
+      scmBranch = "${env.BRANCH_NAME}" 
+      shortCommit = sh(returnStdout: true, script: "git log -n 1 --pretty=format:'%h'")
+      commitId = sh(returnStdout: true, script: "git rev-parse --short HEAD") 
+        
+          }
 
-            stage('Unit Tests') {
-                sh 'gradle test'
-                junit 'build/test-results/test/*.xml'
+      
+stages {
+        stage('Clear Workspace') {
+            steps {
+                cleanWs()
+                         
             }
-            stage('Integration Tests') {
-                sh 'gradle integrationTest'
-                junit 'build/test-results/integrationTest/*.xml'
+        }
+        stage('Build') {
+         environment{
+           branchname = "${env.BRANCH_NAME}"
+         }
+            steps {
+                   dir('source') {
+                 
+                git branch: scmBranch, credentialsId: '48553e38-f071-4dc4-b41c-6be28f1b1f72', url: scmUrl
+               }
             }
-            stage('Coverage') {
-                // generate test report
-                sh 'gradle jacocoTestReport'
-                // verify minimum coverage
-                sh 'gradle jacocoTestCoverageVerification'
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying....'
+                      sh 'whoami && pwd'
+                      sh 'mkdir -pv /var/terraform/s3_website_$scmBranch/'
+                      sh 'ls -ls /var/terraform/s3_website_$scmBranch/'
+                      sh 'cp /var/terraform/s3_website_$scmBranch/terraform.tfstate source/'
+                      sh 'cd source  && terraform init && terraform plan -var env=$scmBranch && terraform apply -var env=$scmBranch -auto-approve'
+
             }
-            stage('SonarQube') {
-                withSonarQubeEnv('SonarQubeServer') {
-                    // submit results to SonarQube
-                    sh 'gradle sonarqube'
-                }
-            }
-            stage('Quality Gate') {
-                timeout(time: 1, unit: 'HOURS') {
-                    // TODO: make this a failure criteria once coverage is ready
-                    waitForQualityGate abortPipeline: false
-                }
-            }
-            stage('Publish War') {
-                sh 'gradle publish'
+        }
+        stage('Save') {
+            steps {
+                echo 'Saving tfstate....'
+                      sh 'mkdir -pv /var/terraform/s3_website_$scmBranch'
+                      sh 'mv source/terraform.tfstate /var/terraform/s3_website_$scmBranch/'
             }
         }
     }
 
-    stage('Publish Helm Chart') {
-        something
-    }
-} finally {
-    something
-}
-}
+  }
